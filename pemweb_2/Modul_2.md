@@ -1,7 +1,7 @@
 # Dokumen Teknis Modul 2 — HTML Semantik, Tailwind CSS, dan Aksesibilitas
 
 Nama/NIM : Muhammad Fadhilah Chandra Mulan /105224036
-Repositori : 
+Repositori : https://github.com/fadhillahlalalalala-afk/Praktikum-105224036_PEMWEB_modul2
 
 ## 1. Struktur Semantik
 
