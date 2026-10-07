@@ -1,0 +1,160 @@
+
+
+**Nama/NIM** : Muhammad Fadhilah Chandra Mulan / 105224036
+**Repositori** : `https://github.com/fadhillahlalalalala-afk/Praktikum-105224036_PEMWEB_modul2/tree/main/toko-buku`
+**Produk** : Halaman detail produk Toko Buku Online (React + TypeScript, dibuat dengan Vite)
+
+---
+
+## 1. Diagram Pohon Komponen
+
+!--->folder img_no1
+
+```
+App
+└── ProductPage
+    ├── ProductGallery
+    ├── ProductInfo
+    │   ├── PriceTag
+    │   └── AddToC
+    
+    
+    
+    artButton
+    └── ReviewList
+        └── ReviewItem
+```
+
+| Komponen | Props | Tipe Data |
+|---|---|---|
+| `App` | (tanpa props) | - |
+| `ProductPage` | `productId` | `number` |
+| `ProductGallery` | `images`, `alt` | `string[]`, `string` |
+| `ProductInfo` | `product` | `Product` |
+| `PriceTag` | `price`, `discountPrice?` | `number`, `number` (opsional) |
+| `AddToCartButton` | `productId`, `onAdd`, `disabled?` | `number`, `(id: number) => void`, `boolean` (opsional) |
+| `ReviewList` | `reviews` | `Review[]` |
+| `ReviewItem` | `review` | `Review` |
+
+Diagram memuat delapan komponen, melebihi syarat minimal lima. Data mengalir satu arah dari induk ke anak lewat props.
+
+---
+
+## 2. Definisi Tipe Entitas Utama
+
+Berkas `src/types.ts`:
+
+```ts
+export type Kategori = "novel" | "komik" | "pelajaran";
+
+export interface Product {
+  id: number;
+  title: string;
+  price: number;
+  kategori: Kategori;
+  discountPrice?: number;
+  stock: number;
+}
+
+export interface Review {
+  id: number;
+  user: string;
+  rating: number;
+  comment: string;
+}
+```
+
+![types.ts di VS Code](img/02-types-ts.png)
+
+| Konsep | Bagian kode | Alasan |
+|---|---|---|
+| Interface | `Product`, `Review` | Mendefinisikan bentuk objek entitas utama |
+| Union type | `Kategori` | Membatasi nilai pada tiga pilihan, salah ketik seperti `"novell"` terdeteksi saat kompilasi |
+| Properti opsional | `discountPrice?` | Tidak semua buku sedang diskon |
+
+---
+
+## 3. Perbedaan Props dan State
+
+| Aspek | Props | State |
+|---|---|---|
+| Sumber | Diterima dari komponen induk | Dimiliki komponen itu sendiri |
+| Dapat diubah | Tidak (read-only) | Ya, lewat fungsi setter |
+| Arah | Satu arah, induk ke anak | Lokal di dalam komponen |
+| Efek perubahan | Berubah jika induk mengirim nilai baru | Memicu render ulang komponen |
+
+**Contoh dari produk:** pada `ProductPage`, `productId` adalah props karena nilainya dikirim dari `App` dan tidak diubah di dalam komponen. `quantity` adalah state karena jumlah beli berubah setiap kali pengguna menekan tombol tambah atau kurang.
+
+```tsx
+interface Props { productId: number; }             // props (dari App)
+
+export default function ProductPage({ productId }: Props) {
+  const [quantity, setQuantity] = useState(1);     // state (milik komponen)
+  // ...
+}
+```
+
+---
+
+## 4. Alasan Atribut `key` pada Daftar
+
+Saat menampilkan daftar dengan `map()`, React memerlukan `key` sebagai identitas unik tiap elemen. Dengan `key`, React dapat membandingkan daftar lama dan baru (*reconciliation*), lalu hanya memperbarui, menambah, atau menghapus elemen yang benar-benar berubah, tanpa merender ulang seluruh daftar.
+
+**Indeks larik kurang tepat sebagai `key`** karena indeks hanya menunjukkan posisi, bukan identitas data. Ketika urutan berubah, atau ada item yang disisipkan atau dihapus, indeks bergeser sehingga React mengira item yang berbeda adalah item yang sama. Akibatnya state komponen anak (misalnya isi input) bisa tertukar atau salah tampil, dan render menjadi tidak efisien. Karena itu `key` sebaiknya memakai ID unik yang stabil dari data.
+
+```tsx
+{reviews.map((r) => (
+  <li key={r.id}>{r.user}: {r.comment}</li>   // key dari ID data, bukan indeks
+))}
+```
+
+---
+
+## 5. `fetch()` Tidak Reject pada Status 404
+
+`fetch()` hanya menolak promise (*reject*) ketika terjadi **kegagalan jaringan**, misalnya tidak ada koneksi, DNS gagal, atau permintaan terblokir. Jika server berhasil dihubungi dan membalas, termasuk dengan status 404 atau 500, `fetch()` menganggap permintaan itu selesai sehingga promise berhasil (*resolve*) dengan objek `Response`.
+
+**Cara menanganinya:** periksa `response.ok` (bernilai `true` hanya untuk status 200 sampai 299) atau `response.status`, lalu lempar error secara manual di dalam `try...catch`:
+
+```ts
+try {
+  const res = await fetch(`https://dummyjson.com/products/${productId}`);
+  if (!res.ok) throw new Error(`Gagal memuat: status ${res.status}`);
+  const data = await res.json();
+} catch (e) {
+  setError((e as Error).message);
+}
+```
+
+**Pengujian:** `productId={1}` menampilkan halaman produk, sedangkan `productId={9999}` menampilkan pesan error 404.
+
+| Halaman produk (`productId=1`) | Pesan error (`productId=9999`) |
+|---|---|
+| ![Halaman produk](img/03-halaman-produk.png) | ![Error 404](img/04-error-404.png) |
+
+---
+
+## 6. Kendala dan Penyelesaian
+
+**Kendala 1: garis merah pada impor `ProductPage` di `App.tsx`.**
+Penyebabnya, nama berkas ditulis `productpage.tsx` (huruf kecil semua) sedangkan impor memakai `ProductPage`. TypeScript membedakan huruf besar dan kecil pada nama berkas, sehingga modul dianggap tidak ditemukan.
+*Penyelesaian:* mengganti nama berkas menjadi `ProductPage.tsx`, dan memastikan berkas berada di `src/components/`.
+*Pelajaran:* nama berkas dan jalur impor harus sama persis, termasuk huruf besar dan kecil.
+
+**Kendala 2: `git push` ditolak.**
+Push pertama gagal karena gangguan koneksi SSL/TLS (`schannel: failed to receive handshake`). Setelah tersambung, push ditolak (`rejected ... fetch first`) karena repositori di GitHub memuat commit yang belum ada di lokal.
+*Penyelesaian:* menjalankan `git pull --rebase origin main`, lalu `git push -u origin main`, tanpa `--force` agar riwayat di GitHub tidak terhapus.
+*Pelajaran:* `fetch first` berarti riwayat harus digabungkan dulu sebelum mengunggah.
+
+**Kendala 3: memahami bahwa `fetch()` tidak reject pada 404.**
+Awalnya status 404 tidak masuk ke blok `catch`. Setelah memeriksa `res.ok` dan melempar error manual, pesan error tampil di layar.
+
+---
+
+## 7. Catatan Pemanfaatan AI
+
+| Alat | Perintah utama | Bagian yang digunakan | Cara verifikasi |
+|---|---|---|---|
+| Claude | Meminta bantuan mengerjakan lima butir tugas React dari awal di VS Code; menanyakan cara memanggil komponen, penyebab garis merah, letak `types.ts`, dan penyebab `git push` ditolak | Kerangka diagram komponen, contoh `interface`, kode `ProductPage`, penjelasan `key` dan `fetch()`, serta penyelesaian galat git | Menjalankan `npm run dev`, menguji `productId` 1 dan 9999 di browser, memeriksa tipe di VS Code, dan menjalankan perintah git di terminal |
+
+
